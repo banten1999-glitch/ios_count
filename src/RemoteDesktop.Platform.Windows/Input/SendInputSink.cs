@@ -2,6 +2,9 @@ using System.Runtime.Versioning;
 using RemoteDesktop.Core.Input;
 using RemoteDesktop.Core.Media;
 using static RemoteDesktop.Platform.Windows.Interop.NativeInput;
+// Alias the enum: the IInputSink method is also named MouseButton, so a bare
+// "MouseButton.Left" inside this class resolves to the method, not the enum.
+using CoreMouseButton = RemoteDesktop.Core.Input.MouseButton;
 
 namespace RemoteDesktop.Platform.Windows.Input;
 
@@ -57,12 +60,12 @@ public sealed class SendInputSink : IInputSink
         uint mouseData = 0;
         switch (button)
         {
-            case MouseButton.Left: flags = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP; break;
-            case MouseButton.Right: flags = isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP; break;
-            case MouseButton.Middle: flags = isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP; break;
-            case MouseButton.XButton1:
+            case CoreMouseButton.Left: flags = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP; break;
+            case CoreMouseButton.Right: flags = isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP; break;
+            case CoreMouseButton.Middle: flags = isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP; break;
+            case CoreMouseButton.XButton1:
                 flags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP; mouseData = XBUTTON1; break;
-            case MouseButton.XButton2:
+            case CoreMouseButton.XButton2:
                 flags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP; mouseData = XBUTTON2; break;
             default: return;
         }

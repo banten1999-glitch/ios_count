@@ -103,9 +103,9 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
             IDXGIOutput? chosenOutput = null;
             int outputCounter = 0;
 
-            for (int a = 0; factory.EnumAdapters1(a, out var adapter).Success; a++)
+            for (uint a = 0; factory.EnumAdapters1(a, out var adapter).Success; a++)
             {
-                for (int o = 0; adapter.EnumOutputs(o, out var output).Success; o++)
+                for (uint o = 0; adapter.EnumOutputs(o, out var output).Success; o++)
                 {
                     if (outputCounter == _monitorIndex)
                     {

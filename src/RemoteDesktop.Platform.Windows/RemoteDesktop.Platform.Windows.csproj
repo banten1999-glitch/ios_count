@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <!-- Windows-only project: kept OUT of RemoteDesktop.sln so Linux CI stays green.
+         Build it on Windows via RemoteDesktop.Windows.sln. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WebRTC (managed, maintained, BSD-3) -->
+    <PackageReference Include="SIPSorcery" Version="8.0.7" />
+    <PackageReference Include="SIPSorceryMedia.Abstractions" Version="8.0.7" />
+    <!-- VP8 software encoder for the initial working version (see docs/LIBRARIES.md note). -->
+    <PackageReference Include="SIPSorceryMedia.Encoders" Version="8.0.7" />
+    <!-- Managed Direct3D/DXGI for Desktop Duplication capture (MIT). -->
+    <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
+    <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+  </ItemGroup>
+
+</Project>

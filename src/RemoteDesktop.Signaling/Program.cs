@@ -16,6 +16,7 @@ builder.Services.AddSingleton<IReplayGuard, InMemoryReplayGuard>();
 builder.Services.AddSingleton<SessionTokenService>();
 builder.Services.AddSingleton<TurnCredentialIssuer>();
 builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<SignalRelay>();
 
 // Rate limiting (T9/T14): cap auth + registration attempts per client IP. Connection and
 // pairing brute force is bounded here in addition to per-nonce single use.
@@ -37,8 +38,30 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseRateLimiter();
+app.UseWebSockets();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+// WSS relay for signed SDP/ICE envelopes between paired peers. Authenticated by the session
+// token issued at /api/auth/complete; the relay routes by device id and never inspects payloads.
+app.Map("/ws/signal", async (HttpContext context, SessionTokenService tokens, SignalRelay relay) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    string? token = context.Request.Query["token"];
+    if (string.IsNullOrEmpty(token) || !tokens.TryValidate(token, out var deviceId))
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await relay.ServeAsync(deviceId, socket, context.RequestAborted);
+});
 
 // Register a device's PUBLIC key so the service can look it up during auth. Public keys are
 // not secrets and registration grants no access on its own — access is authorized by the

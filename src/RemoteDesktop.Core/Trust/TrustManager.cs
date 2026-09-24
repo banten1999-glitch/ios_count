@@ -1,3 +1,4 @@
+using RemoteDesktop.Core.Crypto;
 using RemoteDesktop.Core.Protocol;
 
 namespace RemoteDesktop.Core.Trust;
@@ -16,6 +17,12 @@ public sealed class TrustManager
 
     public bool IsAuthorized(string deviceId)
         => _store.Find(deviceId) is { IsActive: true };
+
+    /// <summary>The paired public key for an active trusted device, or null if unknown/revoked.</summary>
+    public DevicePublicKey? GetPublicKey(string deviceId)
+        => _store.Find(deviceId) is { IsActive: true } d
+            ? DevicePublicKey.FromBase64(d.PublicKeyBase64)
+            : null;
 
     public IReadOnlyList<TrustedDevice> ListTrusted() => _store.List();
 

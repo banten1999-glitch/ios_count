@@ -50,7 +50,13 @@ public enum SignalKind
     Offer,
     Answer,
     IceCandidate,
-    Bye
+    Bye,
+
+    // Pairing bootstrap (pre-trust). PairRequest carries a ControllerPairingRequest as payload;
+    // PairAccepted carries the Host's public key (base64 SPKI); PairRejected carries a reason.
+    PairRequest,
+    PairAccepted,
+    PairRejected
 }
 
 /// <summary>An opaque signaling payload relayed between two paired peers.</summary>

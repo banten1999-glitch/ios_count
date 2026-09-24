@@ -19,7 +19,7 @@ namespace RemoteDesktop.Host;
 /// from DPAPI-protected storage, connects to the signaling service, and serves unattended
 /// connections from paired devices while always showing the mandatory session indicator.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private Forms.NotifyIcon? _tray;
     private IndicatorWindow? _indicatorWindow;

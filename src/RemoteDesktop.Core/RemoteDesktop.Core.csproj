@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <!-- Core is intentionally cross-platform (no Windows-only APIs) so the
+         signaling service and unit tests build and run on Linux CI too. -->
+  </PropertyGroup>
+
+</Project>

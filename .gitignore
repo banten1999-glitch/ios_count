@@ -1,0 +1,18 @@
+# .NET build output
+bin/
+obj/
+*.user
+
+# Rider / VS
+.idea/
+.vs/
+
+# Test results
+[Tt]est[Rr]esults/
+*.trx
+coverage*.xml
+coverage*.json
+
+# Local secrets (never commit)
+appsettings.*.Local.json
+secrets.json

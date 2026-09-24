@@ -5,8 +5,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <!-- Core is intentionally cross-platform (no Windows-only APIs) so the
-         signaling service and unit tests build and run on Linux CI too. -->
+    <!-- Core is cross-platform: all Windows-only types (DPAPI) are guarded with
+         [SupportedOSPlatform("windows")] so the signaling service and unit tests
+         still build and run on Linux CI. -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DPAPI for at-rest key protection (used only by DpapiSecretStore on Windows). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
 
 </Project>

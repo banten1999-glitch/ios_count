@@ -66,6 +66,13 @@
 - **الالتقاط**: `IScreenCapturer`/`CapturedFrame` (تنفيذ WGC/Desktop Duplication في طبقة ويندوز لاحقاً).
 - **مؤشّر الجلسة الإلزامي**: `MandatorySessionIndicator` — يظهر طوال وجود أي جلسة نشطة ولا يُخفى إلا بانتهاء آخر جلسة؛ **لا توجد واجهة لتعطيله** (شرط الشفافية).
 
+## تنزيل نسخة مبنيّة جاهزة (GitHub Actions)
+
+عند كل دفعة/‏PR يبني سير عمل **Windows Build** تطبيقَي Host وController (win-x64، self-contained)
+ويرفعهما كـ **artifacts** قابلة للتنزيل من تبويب **Actions** في المستودع (لا حاجة لتثبيت .NET أو بناء يدوي):
+`RemoteDesktop-Host-win-x64` و`RemoteDesktop-Controller-win-x64`. وسير **CI** يبني ويشغّل الاختبارات
+ويرفع خدمة الإشارات كـ artifact أيضاً.
+
 ## الطبقة الويندوزية (Host + Controller)
 
 تطبيقا سطح المكتب والمكوّنات الفعلية لويندوز (WPF، DXGI، SendInput، WebRTC عبر SIPSorcery)

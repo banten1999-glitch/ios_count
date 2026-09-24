@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build & test (cross-platform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore RemoteDesktop.sln
+
+      - name: Build
+        run: dotnet build RemoteDesktop.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test RemoteDesktop.sln -c Release --no-build --verbosity normal
+
+      - name: Publish signaling service
+        run: dotnet publish src/RemoteDesktop.Signaling/RemoteDesktop.Signaling.csproj -c Release -o publish/signaling
+
+      - name: Upload signaling artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDesktop-Signaling
+          path: publish/signaling
+          if-no-files-found: error

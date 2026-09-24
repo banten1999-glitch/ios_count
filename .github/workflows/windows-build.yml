@@ -1,0 +1,46 @@
+name: Windows Build
+
+# Builds the Windows desktop apps (Host + Controller) and uploads them as downloadable
+# artifacts, so a runnable build is available without a local Windows toolchain.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Publish Host & Controller (win-x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Host (self-contained win-x64)
+        run: >
+          dotnet publish src/RemoteDesktop.Host/RemoteDesktop.Host.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=false -o publish/host
+
+      - name: Publish Controller (self-contained win-x64)
+        run: >
+          dotnet publish src/RemoteDesktop.Controller/RemoteDesktop.Controller.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=false -o publish/controller
+
+      - name: Upload Host artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDesktop-Host-win-x64
+          path: publish/host
+          if-no-files-found: error
+
+      - name: Upload Controller artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDesktop-Controller-win-x64
+          path: publish/controller
+          if-no-files-found: error

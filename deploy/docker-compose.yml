@@ -1,0 +1,58 @@
+# Reference deployment: signaling service + coturn (TURN/STUN) behind a TLS reverse proxy.
+# Intended for a single small VPS that both PCs can reach. Replace example.com and the
+# secrets before use. Secrets come from a .env file (see deploy/.env.example) — never commit it.
+
+services:
+  signaling:
+    build:
+      context: ..
+      dockerfile: deploy/signaling/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      - Signaling__Audience=rdc-signaling
+      - Signaling__SessionTokenKeyBase64=${SESSION_TOKEN_KEY_BASE64}
+      - Signaling__Turn__SharedSecret=${TURN_SHARED_SECRET}
+      - Signaling__Turn__Uris__0=turns:${PUBLIC_HOST}:5349?transport=tcp
+      - Signaling__Turn__Uris__1=turn:${PUBLIC_HOST}:3478?transport=udp
+    expose:
+      - "8080"
+    # TLS (HTTPS/WSS) is terminated by the reverse proxy; the app speaks plain HTTP internally.
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [signaling]
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host   # TURN needs the real host ports + relay range
+    command:
+      - -n
+      - --log-file=stdout
+      - --realm=${PUBLIC_HOST}
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --min-port=49160
+      - --max-port=49200
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET}
+      - --no-cli
+      - --no-multicast-peers
+      # Provide certs for turns: (5349). Point these at your issued cert/key.
+      - --cert=/certs/fullchain.pem
+      - --pkey=/certs/privkey.pem
+    volumes:
+      - ./certs:/certs:ro
+
+volumes:
+  caddy_data:
+  caddy_config:

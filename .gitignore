@@ -16,3 +16,5 @@ coverage*.json
 # Local secrets (never commit)
 appsettings.*.Local.json
 secrets.json
+deploy/.env
+deploy/certs/

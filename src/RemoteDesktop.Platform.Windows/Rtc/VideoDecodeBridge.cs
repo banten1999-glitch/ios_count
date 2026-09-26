@@ -16,6 +16,9 @@ public sealed class VideoDecodeBridge : IDisposable
 
     public VideoDecodeBridge()
     {
+        // Advertise VP8 only so SDP negotiation converges on VP8 (matching the Host encoder) and
+        // never falls back to a codec this managed endpoint can't handle (e.g. H263).
+        _decoder.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8);
         _decoder.OnVideoSinkDecodedSample += (sample, width, height, stride, pixelFormat) =>
             DecodedFrame?.Invoke(new DecodedVideoFrame(sample, (int)width, (int)height, stride, pixelFormat));
     }

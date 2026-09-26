@@ -29,6 +29,9 @@ public sealed class ScreenVideoSource : IDisposable
         _capturer = capturer;
         _quality = quality;
         _pacer = new FramePacer(quality.Current.FrameRate);
+        // Restrict to VP8 so negotiation never picks a codec the managed encoder can't emit
+        // (e.g. H263), which otherwise throws on every frame and yields a black screen.
+        _encoder.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8);
         _capturer.RawFrameReady += OnRawFrame;
     }
 

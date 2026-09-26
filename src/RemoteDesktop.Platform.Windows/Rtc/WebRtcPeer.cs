@@ -59,7 +59,13 @@ public sealed class WebRtcPeer : IAsyncDisposable
             source.OnVideoSourceEncodedSample += (durationRtpUnits, sample) =>
                 _pc.SendVideo(durationRtpUnits, sample);
             _pc.OnVideoFormatsNegotiated += formats =>
-                source.SetVideoSourceFormat(formats.First());
+            {
+                // Bind to VP8 explicitly. The source already restricts to VP8, but never pass
+                // whatever landed first (H263, etc.) to the VP8 encoder — it throws on every frame.
+                var vp8 = formats.Where(f => f.Codec == VideoCodecsEnum.VP8).ToList();
+                if (vp8.Count > 0)
+                    source.SetVideoSourceFormat(vp8[0]);
+            };
         }
     }
 

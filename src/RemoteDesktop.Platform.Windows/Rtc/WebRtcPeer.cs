@@ -61,11 +61,11 @@ public sealed class WebRtcPeer : IAsyncDisposable
     public void AddVideoTrack(IVideoSource source, MediaStreamStatusEnum direction,
         Action? onSendFormatNegotiated = null)
     {
-        var formats = source.GetVideoSourceFormats();
-        Diagnostics.FileLog.Info($"RTC: local video formats = {string.Join(", ", formats.Select(f => f.Codec))}");
-        if (!formats.Any(f => f.Codec == VideoCodecsEnum.VP8))
+        var localFormats = source.GetVideoSourceFormats();
+        Diagnostics.FileLog.Info($"RTC: local video formats = {string.Join(", ", localFormats.Select(f => f.Codec))}");
+        if (!localFormats.Any(f => f.Codec == VideoCodecsEnum.VP8))
             throw new InvalidOperationException("VP8 is unavailable. Check that all SIPSorcery packages use matching versions.");
-        var track = new MediaStreamTrack(formats, direction);
+        var track = new MediaStreamTrack(localFormats, direction);
         _pc.addTrack(track);
 
         if (direction is MediaStreamStatusEnum.SendOnly or MediaStreamStatusEnum.SendRecv)

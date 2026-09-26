@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 using RemoteDesktop.Core.Media;
 using RemoteDesktop.Platform.Windows.Capture;
 using SIPSorceryMedia.Abstractions;
-using SIPSorceryMedia.Encoders;
+using Vpx.Net;
 
 namespace RemoteDesktop.Platform.Windows.Rtc;
 
@@ -19,7 +19,7 @@ namespace RemoteDesktop.Platform.Windows.Rtc;
 public sealed class ScreenVideoSource : IDisposable
 {
     private readonly DesktopDuplicationCapturer _capturer;
-    private readonly VideoEncoderEndPoint _encoder = new();
+    private readonly Vp8NetVideoEncoderEndPoint _encoder = new();
     private readonly FramePacer _pacer;
     private readonly AdaptiveQualityController _quality;
     private long _lastFrameMs;
@@ -63,7 +63,7 @@ public sealed class ScreenVideoSource : IDisposable
 
         try
         {
-            long durationMs = _lastFrameMs == 0 ? 33 : Math.Max(1, frame.TimestampMs - _lastFrameMs);
+            long durationMs = _lastFrameMs == 0 ? 33 : Math.Clamp(frame.TimestampMs - _lastFrameMs, 1, 1000);
             _lastFrameMs = frame.TimestampMs;
 
             byte[] packed = Pack(frame);

@@ -22,7 +22,7 @@ namespace RemoteDesktop.Host;
 public partial class App : System.Windows.Application
 {
     private Forms.NotifyIcon? _tray;
-    private IndicatorWindow? _indicatorWindow;
+
     private MandatorySessionIndicator? _indicator;
     private SignalingClient? _signaling;
     private HostConnectionOrchestrator? _connection;
@@ -76,9 +76,9 @@ public partial class App : System.Windows.Application
         _trust = new TrustManager(_trustStore);
         _pairingService = new HostPairingService(_identity, _trustStore);
 
-        // Mandatory, always-visible session indicator.
-        _indicatorWindow = new IndicatorWindow();
-        _indicator = new MandatorySessionIndicator(_indicatorWindow);
+        // Session status lives in the notification area, without a desktop overlay.
+        SetupTray();
+        _indicator = new MandatorySessionIndicator(new TraySessionIndicator(_tray!, Dispatcher));
 
         // Signaling: register public key, authenticate (proof of possession), open relay socket.
         _signaling = new SignalingClient(new Uri(signalingUrl));
@@ -97,7 +97,6 @@ public partial class App : System.Windows.Application
         _connection = new HostConnectionOrchestrator(_identity, _trust, _signaling, _indicator, stun);
         _pairingCoordinator = new HostPairingCoordinator(_identity, _pairingService, _signaling, ConfirmPairingAsync);
 
-        SetupTray();
     }
 
     private Task<bool> ConfirmPairingAsync(string controllerDeviceId)
@@ -142,6 +141,7 @@ public partial class App : System.Windows.Application
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Pair new device…", null, (_, _) => ShowPairingWindow());
         menu.Items.Add("Trusted devices…", null, (_, _) => ShowTrustedDevices());
+        menu.Items.Add("Disconnect remote session", null, (_, _) => _connection?.Disconnect());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _tray.ContextMenuStrip = menu;

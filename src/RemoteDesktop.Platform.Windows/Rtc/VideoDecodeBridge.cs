@@ -1,6 +1,6 @@
 using System.Runtime.Versioning;
 using SIPSorceryMedia.Abstractions;
-using SIPSorceryMedia.Encoders;
+using Vpx.Net;
 
 namespace RemoteDesktop.Platform.Windows.Rtc;
 
@@ -12,7 +12,7 @@ namespace RemoteDesktop.Platform.Windows.Rtc;
 [SupportedOSPlatform("windows")]
 public sealed class VideoDecodeBridge : IDisposable
 {
-    private readonly VideoEncoderEndPoint _decoder = new();
+    private readonly Vp8NetVideoEncoderEndPoint _decoder = new();
 
     public VideoDecodeBridge()
     {

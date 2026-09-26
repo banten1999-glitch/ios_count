@@ -19,6 +19,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Test Windows video negotiation and frame delivery
+        run: dotnet test tests/RemoteDesktop.Windows.Tests/RemoteDesktop.Windows.Tests.csproj -c Release --logger "console;verbosity=normal"
+
       - name: Publish Host (self-contained win-x64)
         run: >
           dotnet publish src/RemoteDesktop.Host/RemoteDesktop.Host.csproj

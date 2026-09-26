@@ -111,6 +111,8 @@ public partial class MainWindow : Window
             var signaling = await EnsureSignalingAsync();
             var hostKey = DevicePublicKey.FromBase64(trusted.PublicKeyBase64);
             _connection = new ControllerConnectionOrchestrator(_identity, hostKey, signaling, _stun);
+            _firstFrameLogged = false;
+            _connection.ConnectionError += error => Dispatcher.Invoke(() => SetStatus("Connection error: " + error));
             _connection.FrameReceived += OnFrame;
             _connection.ConnectionStateChanged += OnConnectionState;
 

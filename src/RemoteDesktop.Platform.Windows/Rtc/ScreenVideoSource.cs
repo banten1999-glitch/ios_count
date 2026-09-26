@@ -23,6 +23,7 @@ public sealed class ScreenVideoSource : IDisposable
     private readonly FramePacer _pacer;
     private readonly AdaptiveQualityController _quality;
     private long _lastFrameMs;
+    private volatile bool _ready;
 
     public ScreenVideoSource(DesktopDuplicationCapturer capturer, AdaptiveQualityController quality)
     {
@@ -38,6 +39,13 @@ public sealed class ScreenVideoSource : IDisposable
     /// <summary>The SIPSorcery video source to attach to the peer connection (SendOnly).</summary>
     public IVideoSource Source => _encoder;
 
+    /// <summary>
+    /// Allow encoding/sending. Must be called only after the sending video format (VP8) has been
+    /// negotiated; feeding the encoder before that both floods SendVideo with "no format" errors
+    /// and can divide-by-zero inside the encoder before its frame rate is configured.
+    /// </summary>
+    public void MarkReady() => _ready = true;
+
     /// <summary>Feed the latest bandwidth estimate to adapt frame rate/bitrate.</summary>
     public void ReportBandwidth(double estimatedKbps)
     {
@@ -47,6 +55,9 @@ public sealed class ScreenVideoSource : IDisposable
 
     private void OnRawFrame(RawBgraFrame frame)
     {
+        if (!_ready)
+            return; // format not negotiated yet — don't feed the encoder
+
         if (!_pacer.TryAdmit(frame.TimestampMs))
             return; // dropped to prevent buildup
 

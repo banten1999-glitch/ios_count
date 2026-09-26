@@ -103,7 +103,12 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _capturer = new DesktopDuplicationCapturer();
         var quality = new AdaptiveQualityController(QualityLadder.Default(), startIndex: 1);
         _video = new ScreenVideoSource(_capturer, quality);
-        _peer.AddVideoTrack(_video.Source, MediaStreamStatusEnum.SendOnly);
+        var video = _video;
+        _peer.AddVideoTrack(_video.Source, MediaStreamStatusEnum.SendOnly, () =>
+        {
+            video.MarkReady();
+            Diagnostics.FileLog.Info("Host: video format negotiated (VP8), streaming enabled");
+        });
 
         var sink = new SendInputSink(DisplayEnumerator.Enumerate());
         _control = new HostControlSession(sink);

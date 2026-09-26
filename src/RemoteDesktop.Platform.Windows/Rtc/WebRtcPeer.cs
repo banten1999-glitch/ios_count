@@ -48,8 +48,14 @@ public sealed class WebRtcPeer : IAsyncDisposable
 
     public RTCPeerConnectionState State => _pc.connectionState;
 
-    /// <summary>Attach a video track. Host: SendOnly + push encoded samples via the source.</summary>
-    public void AddVideoTrack(IVideoSource source, MediaStreamStatusEnum direction)
+    /// <summary>
+    /// Attach a video track. Host: SendOnly + push encoded samples via the source.
+    /// <paramref name="onSendFormatNegotiated"/> fires once the sending video format (VP8) has been
+    /// negotiated; the source must not encode/send before then, or SendVideo throws because the
+    /// stream has no agreed format yet ("Sequence contains no elements").
+    /// </summary>
+    public void AddVideoTrack(IVideoSource source, MediaStreamStatusEnum direction,
+        Action? onSendFormatNegotiated = null)
     {
         var track = new MediaStreamTrack(source.GetVideoSourceFormats(), direction);
         _pc.addTrack(track);
@@ -57,14 +63,21 @@ public sealed class WebRtcPeer : IAsyncDisposable
         if (direction is MediaStreamStatusEnum.SendOnly or MediaStreamStatusEnum.SendRecv)
         {
             source.OnVideoSourceEncodedSample += (durationRtpUnits, sample) =>
-                _pc.SendVideo(durationRtpUnits, sample);
+            {
+                // Guard: only send once a format is negotiated; otherwise SendVideo throws.
+                try { _pc.SendVideo(durationRtpUnits, sample); }
+                catch (InvalidOperationException) { /* format not negotiated yet — drop */ }
+            };
             _pc.OnVideoFormatsNegotiated += formats =>
             {
                 // Bind to VP8 explicitly. The source already restricts to VP8, but never pass
                 // whatever landed first (H263, etc.) to the VP8 encoder — it throws on every frame.
                 var vp8 = formats.Where(f => f.Codec == VideoCodecsEnum.VP8).ToList();
                 if (vp8.Count > 0)
+                {
                     source.SetVideoSourceFormat(vp8[0]);
+                    onSendFormatNegotiated?.Invoke();
+                }
             };
         }
     }

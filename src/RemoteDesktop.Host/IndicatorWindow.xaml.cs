@@ -21,9 +21,6 @@ public partial class IndicatorWindow : Window, ISessionIndicatorView
     {
         Dispatcher.Invoke(() =>
         {
-            Label.Text = activeSessions.Count == 1
-                ? $"Remote session active — {activeSessions[0].PeerDisplayName}"
-                : $"Remote sessions active — {activeSessions.Count} connected";
             if (!IsVisible) Show();
             PositionTopCenter();
         });

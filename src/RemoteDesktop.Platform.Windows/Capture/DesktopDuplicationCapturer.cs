@@ -184,12 +184,14 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
     private void CaptureOne()
     {
         IDXGIResource? desktopResource = null;
+        bool frameAcquired = false;
         try
         {
             var result = _duplication!.AcquireNextFrame(150, out _, out desktopResource);
             if (result == Vortice.DXGI.ResultCode.WaitTimeout)
                 return; // no change since last frame — nothing to send
             result.CheckError();
+            frameAcquired = true;
 
             using var tex = desktopResource!.QueryInterface<ID3D11Texture2D>();
             _context!.CopyResource(_staging!, tex);
@@ -213,7 +215,7 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
         finally
         {
             desktopResource?.Dispose();
-            _duplication?.ReleaseFrame();
+            if (frameAcquired) _duplication?.ReleaseFrame();
         }
     }
 

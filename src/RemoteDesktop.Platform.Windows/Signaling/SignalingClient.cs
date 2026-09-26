@@ -25,6 +25,7 @@ public sealed class SignalingClient : IAsyncDisposable
     private readonly HttpClient _http;
     private ClientWebSocket? _ws;
     private CancellationTokenSource? _receiveCts;
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
 
     public SignalingClient(Uri baseUri, HttpClient? http = null)
     {
@@ -89,7 +90,14 @@ public sealed class SignalingClient : IAsyncDisposable
         if (_ws is not { State: WebSocketState.Open })
             throw new InvalidOperationException("Signaling socket is not open.");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(signal, Json);
-        await _ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
+        await _sendGate.WaitAsync(ct);
+        try
+        {
+            if (_ws is not { State: WebSocketState.Open })
+                throw new InvalidOperationException("Signaling socket is not open.");
+            await _ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
+        }
+        finally { _sendGate.Release(); }
     }
 
     private async Task ReceiveLoop(CancellationToken ct)

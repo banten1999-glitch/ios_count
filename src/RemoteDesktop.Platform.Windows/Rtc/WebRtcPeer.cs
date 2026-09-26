@@ -23,6 +23,9 @@ public sealed class WebRtcPeer : IAsyncDisposable
 
     private readonly RTCPeerConnection _pc;
     private RTCDataChannel? _inputChannel;
+    private readonly object _iceGate = new();
+    private readonly List<RTCIceCandidateInit> _pendingIce = new();
+    private bool _remoteDescriptionSet;
 
     public WebRtcPeer(IReadOnlyList<RTCIceServer> iceServers)
     {
@@ -122,9 +125,26 @@ public sealed class WebRtcPeer : IAsyncDisposable
         return answer;
     }
 
-    public void ApplyRemoteDescription(RTCSessionDescriptionInit sdp) => _pc.setRemoteDescription(sdp);
+    public void ApplyRemoteDescription(RTCSessionDescriptionInit sdp)
+    {
+        lock (_iceGate)
+        {
+            _pc.setRemoteDescription(sdp);
+            _remoteDescriptionSet = true;
+            foreach (var candidate in _pendingIce)
+                _pc.addIceCandidate(candidate);
+            _pendingIce.Clear();
+        }
+    }
 
-    public void ApplyRemoteIceCandidate(RTCIceCandidateInit candidate) => _pc.addIceCandidate(candidate);
+    public void ApplyRemoteIceCandidate(RTCIceCandidateInit candidate)
+    {
+        lock (_iceGate)
+        {
+            if (_remoteDescriptionSet) _pc.addIceCandidate(candidate);
+            else _pendingIce.Add(candidate);
+        }
+    }
 
     public void Close(string reason) => _pc.Close(reason);
 

@@ -1,0 +1,30 @@
+<Window x:Class="RemoteDesktop.Controller.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Remote Desktop Controller" Height="720" Width="1100"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <ToolBar DockPanel.Dock="Top">
+            <TextBlock Text="Host ID:" VerticalAlignment="Center" Margin="4,0"/>
+            <TextBox x:Name="HostIdBox" Width="260" FontFamily="Consolas"/>
+            <TextBlock Text="Code:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+            <TextBox x:Name="CodeBox" Width="110" FontFamily="Consolas"/>
+            <Button x:Name="PairBtn" Content="Pair" Margin="8,0,0,0" Click="Pair_Click"/>
+            <Separator/>
+            <Button x:Name="ConnectBtn" Content="Connect" Click="Connect_Click"/>
+            <Button x:Name="DisconnectBtn" Content="Disconnect (Ctrl+Alt+9)" Margin="8,0,0,0"
+                    Click="Disconnect_Click" IsEnabled="False"/>
+            <Separator/>
+            <TextBlock x:Name="StatusText" Text="Idle" VerticalAlignment="Center" Margin="8,0"/>
+        </ToolBar>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem><TextBlock x:Name="LatencyText" Text="Latency: —"/></StatusBarItem>
+        </StatusBar>
+        <Border Background="Black" Focusable="True" x:Name="VideoHost">
+            <Image x:Name="VideoImage" Stretch="Uniform"
+                   MouseMove="Video_MouseMove"
+                   MouseDown="Video_MouseDown" MouseUp="Video_MouseUp"
+                   MouseWheel="Video_MouseWheel"/>
+        </Border>
+    </DockPanel>
+</Window>

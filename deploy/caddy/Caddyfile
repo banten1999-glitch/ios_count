@@ -1,0 +1,16 @@
+# Reverse proxy: terminates TLS (auto certs via Let's Encrypt) and forwards HTTP + WebSocket
+# to the signaling service. Replace signaling.example.com with your domain.
+signaling.example.com {
+	encode zstd gzip
+
+	# WebSocket relay for signed SDP/ICE.
+	@ws {
+		path /ws/signal
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @ws signaling:8080
+
+	# REST auth + registration + health.
+	reverse_proxy signaling:8080
+}

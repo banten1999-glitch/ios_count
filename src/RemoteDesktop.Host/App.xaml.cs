@@ -106,9 +106,26 @@ public partial class App : System.Windows.Application
         var tcs = new TaskCompletionSource<bool>();
         Dispatcher.Invoke(() =>
         {
-            var result = Forms.MessageBox.Show(
+            RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Info("Host: showing pairing confirmation dialog");
+            // Use a hidden top-most owner so the prompt always comes to the foreground and is
+            // never buried behind the Controller/other windows.
+            using var owner = new Forms.Form
+            {
+                TopMost = true,
+                ShowInTaskbar = false,
+                StartPosition = Forms.FormStartPosition.CenterScreen,
+                Width = 1,
+                Height = 1,
+                FormBorderStyle = Forms.FormBorderStyle.None
+            };
+            owner.Show();
+            owner.BringToFront();
+            owner.Activate();
+
+            var result = Forms.MessageBox.Show(owner,
                 $"Allow this device to pair for unattended access?\n\nDevice: {controllerDeviceId}",
                 "Confirm Pairing", Forms.MessageBoxButtons.YesNo, Forms.MessageBoxIcon.Question);
+            owner.Hide();
             tcs.SetResult(result == Forms.DialogResult.Yes);
         });
         return tcs.Task;

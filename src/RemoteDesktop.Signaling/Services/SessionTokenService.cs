@@ -22,10 +22,18 @@ public sealed class SessionTokenService
     {
         var o = options.Value;
         if (string.IsNullOrEmpty(o.SessionTokenKeyBase64))
-            throw new InvalidOperationException("Signaling:SessionTokenKeyBase64 must be configured.");
-        _key = Convert.FromBase64String(o.SessionTokenKeyBase64);
-        if (_key.Length < 32)
-            throw new InvalidOperationException("Session token key must be at least 32 bytes.");
+        {
+            // No key configured: generate an ephemeral per-process key so local/first-run works
+            // without setup. Tokens then reset on restart and can't be shared across instances —
+            // configure Signaling:SessionTokenKeyBase64 for any real/multi-instance deployment.
+            _key = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        }
+        else
+        {
+            _key = Convert.FromBase64String(o.SessionTokenKeyBase64);
+            if (_key.Length < 32)
+                throw new InvalidOperationException("Session token key must be at least 32 bytes.");
+        }
         _ttl = o.SessionTokenTtl;
         _clock = clock ?? TimeProvider.System;
     }

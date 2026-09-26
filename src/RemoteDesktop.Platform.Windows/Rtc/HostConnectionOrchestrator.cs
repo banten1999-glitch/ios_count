@@ -55,11 +55,20 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         try
         {
             var env = signal.Envelope;
+            Diagnostics.FileLog.Info($"Host: signal received kind={env.Kind} from={env.FromDeviceId}");
 
             // Only paired, active devices may connect; unknown/revoked ids are ignored (T12/T15).
             var key = _trust.GetPublicKey(env.FromDeviceId);
-            if (key is null) return;
-            if (!signal.Verify(key)) return; // authenticity + integrity (defeats MITM, T3)
+            if (key is null)
+            {
+                Diagnostics.FileLog.Info($"Host: dropped {env.Kind} — device not trusted: {env.FromDeviceId}");
+                return;
+            }
+            if (!signal.Verify(key))
+            {
+                Diagnostics.FileLog.Info($"Host: dropped {env.Kind} — signature verify failed");
+                return; // authenticity + integrity (defeats MITM, T3)
+            }
 
             switch (env.Kind)
             {

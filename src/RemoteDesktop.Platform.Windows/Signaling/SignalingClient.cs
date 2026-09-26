@@ -78,6 +78,7 @@ public sealed class SignalingClient : IAsyncDisposable
 
         _ws = new ClientWebSocket();
         await _ws.ConnectAsync(wsUri, ct);
+        Diagnostics.FileLog.Info($"Signaling: WSS connected to {wsUri.Host}:{wsUri.Port}");
 
         _receiveCts = new CancellationTokenSource();
         _ = Task.Run(() => ReceiveLoop(_receiveCts.Token));
@@ -110,11 +111,14 @@ public sealed class SignalingClient : IAsyncDisposable
                 sb.Clear();
                 var signal = JsonSerializer.Deserialize<SignedSignal>(json, Json);
                 if (signal is not null)
+                {
+                    Diagnostics.FileLog.Info($"Signaling: received {signal.Envelope.Kind} from {signal.Envelope.FromDeviceId}");
                     SignalReceived?.Invoke(signal);
+                }
             }
         }
         catch (OperationCanceledException) { /* shutting down */ }
-        catch (WebSocketException) { /* connection dropped; orchestrator handles reconnect */ }
+        catch (WebSocketException ex) { Diagnostics.FileLog.Error("Signaling: WSS dropped", ex); }
     }
 
     public async ValueTask DisposeAsync()

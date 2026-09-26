@@ -53,6 +53,7 @@ public sealed class HostPairingCoordinator
         if (signal.Envelope.Kind != SignalKind.PairRequest) return;
         try
         {
+            Diagnostics.FileLog.Info($"Host: pair request received from {signal.Envelope.FromDeviceId}");
             var req = JsonSerializer.Deserialize<ControllerPairingRequest>(signal.Envelope.Payload, Json);
             if (req is null) return;
 
@@ -64,6 +65,7 @@ public sealed class HostPairingCoordinator
 
             var submit = _pairing.Submit(req.Code, controllerKey, req.IssuedAtUnixMs,
                 Convert.FromBase64String(req.SignatureBase64));
+            Diagnostics.FileLog.Info($"Host: pair submit verdict = {submit.Verdict}");
             if (submit.Verdict != PairingSubmitVerdict.AwaitingConfirmation)
             {
                 Reject(req.HostDeviceId, controllerKey.DeviceId, submit.Verdict.ToString());
@@ -72,12 +74,14 @@ public sealed class HostPairingCoordinator
 
             // Mandatory local confirmation on the Host.
             bool approved = await _confirmAsync(controllerKey.DeviceId);
+            Diagnostics.FileLog.Info($"Host: pair confirmation approved = {approved}");
             if (!approved) { _pairing.Cancel(); Reject(req.HostDeviceId, controllerKey.DeviceId, "declined"); return; }
 
             _pairing.Confirm(displayName: controllerKey.DeviceId);
+            Diagnostics.FileLog.Info($"Host: device trusted and PairAccepted sent to {controllerKey.DeviceId}");
             SendTo(controllerKey.DeviceId, SignalKind.PairAccepted, _identity.Public.ToBase64());
         }
-        catch { /* drop malformed requests */ }
+        catch (Exception ex) { Diagnostics.FileLog.Error("Host: pair request handling failed", ex); }
     }
 
     private void Reject(string _, string controllerId, string reason)

@@ -61,6 +61,7 @@ public sealed class ControllerConnectionOrchestrator : IAsyncDisposable
         await _peer.CreateInputChannelAsync();
         var offer = await _peer.CreateOfferAsync();
         SendSigned(SignalKind.Offer, SignalPayloads.FromSdp(offer));
+        Diagnostics.FileLog.Info($"Controller: offer sent to host {_hostDeviceId}");
     }
 
     private void OnSignal(SignedSignal signal)

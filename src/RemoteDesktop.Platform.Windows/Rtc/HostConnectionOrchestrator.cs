@@ -74,9 +74,10 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
                     break;
             }
         }
-        catch
+        catch (Exception ex)
         {
             // A malformed or hostile signal must never crash the Host; drop and stay available.
+            Diagnostics.FileLog.Error("Host: error handling signal", ex);
         }
     }
 
@@ -109,10 +110,12 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _capturer.Start();
         _indicator.OnSessionStarted(new SessionIndicatorInfo(_peerId,
             DisplayNameFor(_peerId), DateTimeOffset.UtcNow));
+        Diagnostics.FileLog.Info($"Host: answered offer from {_peerId}, capture started");
     }
 
     private void OnPeerState(RTCPeerConnectionState state)
     {
+        Diagnostics.FileLog.Info($"Host: peer state = {state}");
         if (state is RTCPeerConnectionState.disconnected
             or RTCPeerConnectionState.failed
             or RTCPeerConnectionState.closed)

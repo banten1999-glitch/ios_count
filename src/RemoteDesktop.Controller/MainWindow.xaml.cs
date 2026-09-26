@@ -53,6 +53,9 @@ public partial class MainWindow : Window
         _identity = DeviceIdentityProvider.LoadOrCreate(secrets);
         _trustStore = new JsonFileTrustedDeviceStore(Path.Combine(dataDir, "known-hosts.json"));
 
+        RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Init(
+            Path.Combine(dataDir, "logs", $"controller-{DateTime.Now:yyyyMMdd-HHmmss}.log"));
+
         _hotkey = new GlobalDisconnectHotkey();
         _hotkey.Pressed += () => Dispatcher.Invoke(() => _ = DisconnectAsync());
         _hotkey.Start();
@@ -141,11 +144,24 @@ public partial class MainWindow : Window
     }
 
     private void OnConnectionState(RTCPeerConnectionState state)
-        => Dispatcher.Invoke(() => SetStatus(state.ToString()));
+    {
+        RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Info($"Controller: peer state = {state}");
+        Dispatcher.Invoke(() => SetStatus(state.ToString()));
+    }
 
     // ---- Video rendering ----
 
-    private void OnFrame(DecodedVideoFrame frame) => Dispatcher.Invoke(() => Render(frame));
+    private bool _firstFrameLogged;
+    private void OnFrame(DecodedVideoFrame frame)
+    {
+        if (!_firstFrameLogged)
+        {
+            _firstFrameLogged = true;
+            RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Info(
+                $"Controller: first video frame {frame.Width}x{frame.Height} fmt={frame.PixelFormat}");
+        }
+        Dispatcher.Invoke(() => Render(frame));
+    }
 
     private void Render(DecodedVideoFrame frame)
     {

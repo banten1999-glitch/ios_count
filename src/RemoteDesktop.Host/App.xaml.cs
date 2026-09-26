@@ -36,6 +36,26 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        // Diagnostics + global exception handling so a background error is logged, not fatal.
+        var logDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "RemoteDesktopControl", "Host", "logs");
+        RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Init(
+            Path.Combine(logDir, $"host-{DateTime.Now:yyyyMMdd-HHmmss}.log"));
+
+        DispatcherUnhandledException += (_, ex) =>
+        {
+            RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Error("UI-thread exception", ex.Exception);
+            ex.Handled = true; // keep the tray app alive
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, ex) =>
+            RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Error("Domain exception", ex.ExceptionObject as Exception);
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, ex) =>
+        {
+            RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Error("Unobserved task exception", ex.Exception);
+            ex.SetObserved();
+        };
+
         var config = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true)

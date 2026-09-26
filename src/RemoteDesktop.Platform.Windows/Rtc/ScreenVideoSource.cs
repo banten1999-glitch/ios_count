@@ -56,6 +56,11 @@ public sealed class ScreenVideoSource : IDisposable
             _encoder.ExternalVideoSourceRawSample(
                 (uint)durationMs, frame.Width, frame.Height, packed, VideoPixelFormatsEnum.Bgra);
         }
+        catch (Exception ex)
+        {
+            // Never let an encoder hiccup propagate to the capture thread and crash the Host.
+            Diagnostics.FileLog.Error("Encode: raw sample failed", ex);
+        }
         finally
         {
             _pacer.CompleteSend();

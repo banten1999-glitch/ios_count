@@ -84,11 +84,19 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
                 }
                 CaptureOne();
             }
-            catch (SharpGen.Runtime.SharpGenException)
+            catch (SharpGen.Runtime.SharpGenException ex)
             {
                 // Access lost or device removed — rebuild on next iteration.
+                Diagnostics.FileLog.Error("Capture: DXGI error, rebuilding duplication", ex);
                 lock (_gate) DisposeDuplication();
                 Thread.Sleep(100);
+            }
+            catch (Exception ex)
+            {
+                // Any other error must NOT kill the capture thread / crash the Host process.
+                Diagnostics.FileLog.Error("Capture: unexpected error, rebuilding duplication", ex);
+                lock (_gate) DisposeDuplication();
+                Thread.Sleep(200);
             }
         }
     }

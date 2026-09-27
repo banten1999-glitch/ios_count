@@ -17,7 +17,7 @@ services:
     tmpfs:
       - /tmp:size=32m
     environment:
-      ASPNETCORE_URLS: http://0.0.0.0:8080
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
       Signaling__Audience: rdc-signaling
       Signaling__SessionTokenKeyBase64: ${SESSION_TOKEN_KEY_BASE64:?Set a random session key}
       Signaling__Turn__SharedSecret: ${TURN_SHARED_SECRET:?Set a random TURN secret}

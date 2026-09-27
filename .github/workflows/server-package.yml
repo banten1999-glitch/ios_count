@@ -38,6 +38,7 @@ jobs:
           docker compose --env-file package/.env -f package/compose.yml config --quiet
           docker compose --env-file package/.env -f package/compose.yml up -d --no-build
           sid=$(docker compose --env-file package/.env -f package/compose.yml ps -q signaling)
+          trap 'docker logs "$sid" --tail 60' ERR
           sip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$sid")
           curl --fail --retry 10 --retry-delay 2 --retry-connrefused "http://$sip:8080/health"
           sleep 5

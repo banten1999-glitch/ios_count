@@ -173,7 +173,7 @@ public partial class MainWindow : Window
     private void ScheduleRender()
     {
         if (_closing || Interlocked.CompareExchange(ref _renderScheduled, 1, 0) != 0) return;
-        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() =>
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
         {
             try
             {
@@ -312,3 +312,4 @@ public partial class MainWindow : Window
 
     private void SetStatus(string text) => StatusText.Text = text;
 }
+

@@ -101,7 +101,7 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _peer = new WebRtcPeer(IceServerFactory.Build(turn, _stunUrl));
 
         _capturer = new DesktopDuplicationCapturer();
-        var quality = new AdaptiveQualityController(QualityLadder.Default(), startIndex: 1);
+        var quality = new AdaptiveQualityController(QualityLadder.Default(), startIndex: 2);
         _video = new ScreenVideoSource(_capturer, quality);
         var video = _video;
         _peer.AddVideoTrack(_video.Source, MediaStreamStatusEnum.SendOnly, () =>

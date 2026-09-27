@@ -8,10 +8,10 @@ namespace RemoteDesktop.Platform.Windows.Rtc;
 
 /// <summary>
 /// Bridges the Desktop Duplication capturer to a SIPSorcery video source. Raw BGRA frames are
-/// paced (<see cref="FramePacer"/>) to avoid backlog and repacked to tightly-packed rows before
+/// processed by a latest-frame worker to avoid backlog and repacked to tightly-packed rows before
 /// being handed to the encoder. Frame rate follows the <see cref="AdaptiveQualityController"/>.
 ///
-/// Encoder: VP8 via SIPSorceryMedia.Encoders for this initial working version — it is managed
+/// Encoder: VP8 via SIPSorcery.VP8 for this initial working version — it is managed
 /// and avoids native FFmpeg build friction. docs/LIBRARIES.md records this as a deliberate
 /// deviation from the H.264/Media-Foundation first choice, to be revisited for hardware accel.
 /// </summary>
@@ -20,7 +20,8 @@ public sealed class ScreenVideoSource : IDisposable
 {
     private readonly DesktopDuplicationCapturer _capturer;
     private readonly Vp8NetVideoEncoderEndPoint _encoder = new();
-    private readonly FramePacer _pacer;
+    private readonly LatestFramePump<RawBgraFrame> _frames;
+    private int _disposed;
     private readonly AdaptiveQualityController _quality;
     private long _lastFrameMs;
     private volatile bool _ready;
@@ -29,7 +30,8 @@ public sealed class ScreenVideoSource : IDisposable
     {
         _capturer = capturer;
         _quality = quality;
-        _pacer = new FramePacer(quality.Current.FrameRate);
+        _capturer.TargetFrameRate = quality.Current.FrameRate;
+        _frames = new LatestFramePump<RawBgraFrame>(quality.Current.FrameRate, EncodeFrame);
         // Restrict to VP8 so negotiation never picks a codec the managed encoder can't emit
         // (e.g. H263), which otherwise throws on every frame and yields a black screen.
         _encoder.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8);
@@ -50,7 +52,8 @@ public sealed class ScreenVideoSource : IDisposable
     public void ReportBandwidth(double estimatedKbps)
     {
         var rung = _quality.Update(estimatedKbps);
-        _pacer.SetTargetFrameRate(rung.FrameRate);
+        _frames.SetFrameRate(rung.FrameRate);
+        _capturer.TargetFrameRate = rung.FrameRate;
     }
 
     private void OnRawFrame(RawBgraFrame frame)
@@ -58,9 +61,11 @@ public sealed class ScreenVideoSource : IDisposable
         if (!_ready)
             return; // format not negotiated yet — don't feed the encoder
 
-        if (!_pacer.TryAdmit(frame.TimestampMs))
-            return; // dropped to prevent buildup
+        _frames.Post(frame);
+    }
 
+    private void EncodeFrame(RawBgraFrame frame)
+    {
         try
         {
             long durationMs = _lastFrameMs == 0 ? 33 : Math.Clamp(frame.TimestampMs - _lastFrameMs, 1, 1000);
@@ -74,10 +79,6 @@ public sealed class ScreenVideoSource : IDisposable
         {
             // Never let an encoder hiccup propagate to the capture thread and crash the Host.
             Diagnostics.FileLog.Error("Encode: raw sample failed", ex);
-        }
-        finally
-        {
-            _pacer.CompleteSend();
         }
     }
 
@@ -94,9 +95,18 @@ public sealed class ScreenVideoSource : IDisposable
         return packed;
     }
 
+    private async Task StopEncoderAsync()
+    {
+        try { await _frames.DisposeAsync(); }
+        catch (Exception ex) { Diagnostics.FileLog.Error("Encode worker stopped with error", ex); }
+        finally { _encoder.Dispose(); }
+    }
+
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _ready = false;
         _capturer.RawFrameReady -= OnRawFrame;
-        _encoder.Dispose();
+        _ = StopEncoderAsync();
     }
 }

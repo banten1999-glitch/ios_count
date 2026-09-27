@@ -1,0 +1,60 @@
+name: Server Package
+on:
+  push:
+    branches: [fix/black-screen-and-status-dot]
+    paths:
+      - 'src/RemoteDesktop.Core/**'
+      - 'src/RemoteDesktop.Signaling/**'
+      - 'deploy/**'
+      - '.github/workflows/server-package.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test and publish Linux service
+        run: |
+          dotnet test tests/RemoteDesktop.Tests/RemoteDesktop.Tests.csproj -c Release
+          dotnet publish src/RemoteDesktop.Signaling/RemoteDesktop.Signaling.csproj -c Release -r linux-x64 --self-contained false -o package/app
+          cp deploy/shared/compose-runtime.yml package/compose.yml
+          cp deploy/shared/install-existing-vps.sh package/install.sh
+          bash -n package/install.sh
+      - name: Smoke test constrained runtime containers
+        run: |
+          docker network create rdc-ci
+          cat > package/.env <<ENV
+          PUBLIC_IP=127.0.0.1
+          PUBLIC_HOST=rdc.test
+          PROXY_NETWORK=rdc-ci
+          SESSION_TOKEN_KEY_BASE64=$(openssl rand -base64 32)
+          TURN_SHARED_SECRET=$(openssl rand -hex 32)
+          ENV
+          docker compose --env-file package/.env -f package/compose.yml config --quiet
+          docker compose --env-file package/.env -f package/compose.yml up -d --no-build
+          sid=$(docker compose --env-file package/.env -f package/compose.yml ps -q signaling)
+          sip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$sid")
+          curl --fail --retry 10 --retry-delay 2 --retry-connrefused "http://$sip:8080/health"
+          sleep 5
+          tid=$(docker compose --env-file package/.env -f package/compose.yml ps -q turn)
+          test "$(docker inspect -f '{{.State.Running}}' "$tid")" = true
+          test "$(docker inspect -f '{{.RestartCount}}' "$tid")" = 0
+          ss -H -lun | awk '{print $4}' | grep ':3478$'
+          docker compose --env-file package/.env -f package/compose.yml down
+          rm package/.env
+      - name: Package and checksum
+        run: |
+          tar -czf RemoteDesktop-Server-linux-x64.tar.gz -C package app compose.yml install.sh
+          sha256sum RemoteDesktop-Server-linux-x64.tar.gz > RemoteDesktop-Server-linux-x64.tar.gz.sha256
+      - name: Publish versioned server download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="server-${GITHUB_SHA}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --prerelease --title "Server ${GITHUB_SHA:0:7}" --notes 'Linux signaling service and shared-VPS installer. Existing server resources and DNS must be checked before installation. Desktop apps are available from Windows Build artifacts.'
+          gh release upload "$tag" RemoteDesktop-Server-linux-x64.tar.gz RemoteDesktop-Server-linux-x64.tar.gz.sha256 --clobber

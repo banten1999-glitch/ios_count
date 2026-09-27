@@ -62,7 +62,7 @@ public partial class MainWindow : Window
 
         PreviewKeyDown += OnKeyDownForward;
         PreviewKeyUp += OnKeyUpForward;
-        Closed += (_, _) => { _hotkey.Dispose(); _ = DisconnectAsync(); };
+        Closed += (_, _) => { _closing = true; _hotkey.Dispose(); _ = DisconnectAsync(); };
     }
 
     private async Task<SignalingClient> EnsureSignalingAsync()
@@ -111,6 +111,8 @@ public partial class MainWindow : Window
             var signaling = await EnsureSignalingAsync();
             var hostKey = DevicePublicKey.FromBase64(trusted.PublicKeyBase64);
             _connection = new ControllerConnectionOrchestrator(_identity, hostKey, signaling, _stun);
+            _firstFrameLogged = false;
+            _connection.ConnectionError += error => Dispatcher.Invoke(() => SetStatus("Connection error: " + error));
             _connection.FrameReceived += OnFrame;
             _connection.ConnectionStateChanged += OnConnectionState;
 
@@ -152,6 +154,9 @@ public partial class MainWindow : Window
     // ---- Video rendering ----
 
     private bool _firstFrameLogged;
+    private DecodedVideoFrame? _latestFrame;
+    private int _renderScheduled;
+    private bool _closing;
     private void OnFrame(DecodedVideoFrame frame)
     {
         if (!_firstFrameLogged)
@@ -160,7 +165,27 @@ public partial class MainWindow : Window
             RemoteDesktop.Platform.Windows.Diagnostics.FileLog.Info(
                 $"Controller: first video frame {frame.Width}x{frame.Height} fmt={frame.PixelFormat}");
         }
-        Dispatcher.Invoke(() => Render(frame));
+        if (_closing) return;
+        Interlocked.Exchange(ref _latestFrame, frame);
+        ScheduleRender();
+    }
+
+    private void ScheduleRender()
+    {
+        if (_closing || Interlocked.CompareExchange(ref _renderScheduled, 1, 0) != 0) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        {
+            try
+            {
+                var latest = Interlocked.Exchange(ref _latestFrame, null);
+                if (!_closing && latest is not null) Render(latest);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _renderScheduled, 0);
+                if (!_closing && Volatile.Read(ref _latestFrame) is not null) ScheduleRender();
+            }
+        }));
     }
 
     private void Render(DecodedVideoFrame frame)
@@ -287,3 +312,4 @@ public partial class MainWindow : Window
 
     private void SetStatus(string text) => StatusText.Text = text;
 }
+

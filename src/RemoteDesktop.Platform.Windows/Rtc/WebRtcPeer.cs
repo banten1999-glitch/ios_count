@@ -13,7 +13,7 @@ namespace RemoteDesktop.Platform.Windows.Rtc;
 /// <see cref="SignedSignal"/> and relay; incoming ones are applied via the Apply* methods after
 /// the caller has verified the signature against the paired key.
 ///
-/// This targets SIPSorcery 8.x; a couple of member names can shift between minor versions, so
+/// This targets SIPSorcery 10.0.16; a couple of member names can shift between minor versions, so
 /// verify against the referenced package when building on Windows.
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -23,6 +23,9 @@ public sealed class WebRtcPeer : IAsyncDisposable
 
     private readonly RTCPeerConnection _pc;
     private RTCDataChannel? _inputChannel;
+    private readonly object _iceGate = new();
+    private readonly List<RTCIceCandidateInit> _pendingIce = new();
+    private bool _remoteDescriptionSet;
 
     public WebRtcPeer(IReadOnlyList<RTCIceServer> iceServers)
     {
@@ -33,8 +36,9 @@ public sealed class WebRtcPeer : IAsyncDisposable
             if (c is not null) IceCandidate?.Invoke(c);
         };
         _pc.onconnectionstatechange += s => ConnectionStateChanged?.Invoke(s);
+        _pc.oniceconnectionstatechange += s => Diagnostics.FileLog.Info($"RTC: ICE state = {s}");
 
-        // Host creates the channel; Controller receives it.
+        // Controller creates the channel; Host receives it.
         _pc.ondatachannel += ch =>
         {
             if (ch.label == InputChannelLabel)
@@ -57,7 +61,11 @@ public sealed class WebRtcPeer : IAsyncDisposable
     public void AddVideoTrack(IVideoSource source, MediaStreamStatusEnum direction,
         Action? onSendFormatNegotiated = null)
     {
-        var track = new MediaStreamTrack(source.GetVideoSourceFormats(), direction);
+        var localFormats = source.GetVideoSourceFormats();
+        Diagnostics.FileLog.Info($"RTC: local video formats = {string.Join(", ", localFormats.Select(f => f.Codec))}");
+        if (!localFormats.Any(f => f.Codec == VideoCodecsEnum.VP8))
+            throw new InvalidOperationException("VP8 is unavailable. Check that all SIPSorcery packages use matching versions.");
+        var track = new MediaStreamTrack(localFormats, direction);
         _pc.addTrack(track);
 
         if (direction is MediaStreamStatusEnum.SendOnly or MediaStreamStatusEnum.SendRecv)
@@ -88,7 +96,7 @@ public sealed class WebRtcPeer : IAsyncDisposable
         _pc.OnVideoFrameReceived += (rep, timestamp, frame, format) => handler(timestamp, format, frame);
     }
 
-    /// <summary>Host side: create the input data channel before making the offer.</summary>
+    /// <summary>Controller side: create the input data channel before making the offer.</summary>
     public async Task CreateInputChannelAsync()
     {
         var ch = await _pc.createDataChannel(InputChannelLabel,
@@ -122,9 +130,29 @@ public sealed class WebRtcPeer : IAsyncDisposable
         return answer;
     }
 
-    public void ApplyRemoteDescription(RTCSessionDescriptionInit sdp) => _pc.setRemoteDescription(sdp);
+    public void ApplyRemoteDescription(RTCSessionDescriptionInit sdp)
+    {
+        lock (_iceGate)
+        {
+            var result = _pc.setRemoteDescription(sdp);
+            Diagnostics.FileLog.Info($"RTC: remote {sdp.type} SDP result = {result}");
+            if (result != SetDescriptionResultEnum.OK)
+                throw new InvalidOperationException($"Remote {sdp.type} SDP rejected: {result}");
+            _remoteDescriptionSet = true;
+            foreach (var candidate in _pendingIce)
+                _pc.addIceCandidate(candidate);
+            _pendingIce.Clear();
+        }
+    }
 
-    public void ApplyRemoteIceCandidate(RTCIceCandidateInit candidate) => _pc.addIceCandidate(candidate);
+    public void ApplyRemoteIceCandidate(RTCIceCandidateInit candidate)
+    {
+        lock (_iceGate)
+        {
+            if (_remoteDescriptionSet) _pc.addIceCandidate(candidate);
+            else _pendingIce.Add(candidate);
+        }
+    }
 
     public void Close(string reason) => _pc.Close(reason);
 

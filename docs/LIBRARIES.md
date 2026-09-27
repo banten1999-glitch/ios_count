@@ -74,3 +74,18 @@
 4. **التوقيع/المفاتيح**: نفضّل بدائل .NET المدمجة؛ NSec/libsodium إن لزمت خوارزميات غير مدعومة أصلاً.
 
 > جميع الاختيارات النهائية تخضع لفحص محدّث للصيانة/CVEs/الترخيص لحظة البناء، ولا يُثبَّت أي اعتمادية غير مُصانة أو بترخيص غير متوافق.
+
+
+### VP8 compatibility repair (September 2026)
+
+Windows video uses `SIPSorcery.VP8`, `SIPSorcery` and
+`SIPSorceryMedia.Abstractions` at version **10.0.16**. Do not substitute
+`SIPSorceryMedia.Encoders 10.0.4`: that binary was built against older
+abstractions whose video codec enum values differ. Filtering its advertised
+formats against the newer VP8 enum can remove every format, preventing video
+negotiation. SDP failures now raise a visible connection error, and the Windows
+workflow tests real loopback ICE/DTLS/RTP video delivery and decoding before
+publishing downloadable applications.
+
+Session status is shown in the Host notification-area icon, with a session-start
+notification and a Disconnect command. There is no top-of-screen overlay.

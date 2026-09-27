@@ -15,9 +15,10 @@ public static class IceServerFactory
 
         if (turn.Uris.Length > 0 && !string.IsNullOrEmpty(turn.Username))
         {
+            foreach (var uri in turn.Uris.Where(uri => !string.IsNullOrWhiteSpace(uri)))
             servers.Add(new RTCIceServer
             {
-                urls = string.Join(',', turn.Uris),
+                urls = uri,
                 username = turn.Username,
                 credential = turn.Password,
                 credentialType = RTCIceCredentialType.password

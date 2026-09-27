@@ -43,6 +43,7 @@ public sealed class ControllerConnectionOrchestrator : IAsyncDisposable
     }
 
     public event Action<DecodedVideoFrame>? FrameReceived;
+    public event Action<string>? ConnectionError;
     public event Action<RTCPeerConnectionState>? ConnectionStateChanged;
 
     public async Task ConnectAsync()
@@ -85,7 +86,11 @@ public sealed class ControllerConnectionOrchestrator : IAsyncDisposable
                     break;
             }
         }
-        catch { /* drop malformed/hostile signals */ }
+        catch (Exception ex)
+        {
+            Diagnostics.FileLog.Error("Controller: signal handling failed", ex);
+            ConnectionError?.Invoke(ex.Message);
+        }
     }
 
     /// <summary>Send one input event with a monotonic sequence number.</summary>

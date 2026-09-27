@@ -1,0 +1,4 @@
+# Append this separate site block to the EXISTING Caddyfile after replacing hostname.
+remote.example.com {
+    reverse_proxy remote-desktop-signaling:8080
+}

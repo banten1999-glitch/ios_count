@@ -101,7 +101,7 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _peer = new WebRtcPeer(IceServerFactory.Build(turn, _stunUrl));
 
         _capturer = new DesktopDuplicationCapturer();
-        var quality = new AdaptiveQualityController(QualityLadder.Default(), startIndex: 1);
+        var quality = new AdaptiveQualityController(QualityLadder.Default(), startIndex: 2);
         _video = new ScreenVideoSource(_capturer, quality);
         var video = _video;
         _peer.AddVideoTrack(_video.Source, MediaStreamStatusEnum.SendOnly, () =>
@@ -121,15 +121,20 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         var answer = await _peer.CreateAnswerAsync();
         SendSigned(SignalKind.Answer, SignalPayloads.FromSdp(answer));
 
-        _capturer.Start();
+
         _indicator.OnSessionStarted(new SessionIndicatorInfo(_peerId,
             DisplayNameFor(_peerId), DateTimeOffset.UtcNow));
-        Diagnostics.FileLog.Info($"Host: answered offer from {_peerId}, capture started");
+        Diagnostics.FileLog.Info($"Host: answered offer from {_peerId}, waiting for media connection");
     }
 
     private void OnPeerState(RTCPeerConnectionState state)
     {
         Diagnostics.FileLog.Info($"Host: peer state = {state}");
+        if (state == RTCPeerConnectionState.connected)
+        {
+            _capturer?.Start();
+            Diagnostics.FileLog.Info("Host: transport connected, capture started");
+        }
         if (state is RTCPeerConnectionState.disconnected
             or RTCPeerConnectionState.failed
             or RTCPeerConnectionState.closed)
@@ -148,6 +153,12 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _ = _signaling.SendAsync(SignedSignal.Create(_identity, env));
     }
 
+    public void Disconnect()
+    {
+        SendSigned(SignalKind.Bye, string.Empty);
+        Teardown();
+    }
+
     private void Teardown()
     {
         var peerId = _peerId;
@@ -155,7 +166,13 @@ public sealed class HostConnectionOrchestrator : IAsyncDisposable
         _control?.Stop();          // releases all held keys/buttons
         _capturer?.Stop();
         _video?.Dispose();
-        _ = _peer?.DisposeAsync();
+        var peer = _peer;
+        _peer = null;
+        if (peer is not null)
+        {
+            peer.ConnectionStateChanged -= OnPeerState;
+            _ = peer.DisposeAsync();
+        }
 
         _control = null;
         _video = null;

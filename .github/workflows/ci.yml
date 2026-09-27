@@ -17,6 +17,11 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Validate shared VPS deployment template
+        run: |
+          bash -n deploy/shared/preflight.sh
+          docker compose --env-file deploy/shared/.env.example -f deploy/shared/compose.yml config --quiet
+
       - name: Restore
         run: dotnet restore RemoteDesktop.sln
 

@@ -26,6 +26,12 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
     private readonly object _gate = new();
 
     private int _monitorIndex;
+    private int _targetFrameRate = 30;
+    public int TargetFrameRate
+    {
+        get => Volatile.Read(ref _targetFrameRate);
+        set => Volatile.Write(ref _targetFrameRate, Math.Clamp(value, 1, 60));
+    }
     private volatile bool _running;
     private Thread? _thread;
 
@@ -82,7 +88,12 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
                     Thread.Sleep(200); // monitor not ready / access lost; back off and retry
                     continue;
                 }
+                var started = _clock.ElapsedMilliseconds;
                 CaptureOne();
+                // Limit GPU readbacks/large allocations without discarding a final desktop
+                // update: DXGI keeps the latest desktop available for the next acquisition.
+                int remaining = (int)Math.Ceiling(1000.0 / TargetFrameRate - (_clock.ElapsedMilliseconds - started));
+                if (remaining > 0) Thread.Sleep(remaining);
             }
             catch (SharpGen.Runtime.SharpGenException ex)
             {
@@ -184,12 +195,15 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
     private void CaptureOne()
     {
         IDXGIResource? desktopResource = null;
+        bool frameAcquired = false;
+        RawBgraFrame? frame = null;
         try
         {
             var result = _duplication!.AcquireNextFrame(150, out _, out desktopResource);
             if (result == Vortice.DXGI.ResultCode.WaitTimeout)
                 return; // no change since last frame — nothing to send
             result.CheckError();
+            frameAcquired = true;
 
             using var tex = desktopResource!.QueryInterface<ID3D11Texture2D>();
             _context!.CopyResource(_staging!, tex);
@@ -202,8 +216,7 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
                 Marshal.Copy(map.DataPointer, data, 0, data.Length);
 
                 long ts = _clock.ElapsedMilliseconds;
-                RawFrameReady?.Invoke(new RawBgraFrame(data, _width, _height, stride, ts, _monitorIndex));
-                FrameCaptured?.Invoke(new CapturedFrame(_width, _height, ts, _monitorIndex));
+                frame = new RawBgraFrame(data, _width, _height, stride, ts, _monitorIndex);
             }
             finally
             {
@@ -213,7 +226,13 @@ public sealed class DesktopDuplicationCapturer : IScreenCapturer
         finally
         {
             desktopResource?.Dispose();
-            _duplication?.ReleaseFrame();
+            if (frameAcquired) _duplication?.ReleaseFrame();
+        }
+        // Release GPU/DXGI resources before invoking CPU encoding or other subscribers.
+        if (frame is not null)
+        {
+            RawFrameReady?.Invoke(frame);
+            FrameCaptured?.Invoke(new CapturedFrame(frame.Width, frame.Height, frame.TimestampMs, frame.MonitorIndex));
         }
     }
 
